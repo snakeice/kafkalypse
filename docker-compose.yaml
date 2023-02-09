@@ -1,0 +1,33 @@
+version: "3.8"
+
+services:
+  kafka:
+    image: moeenz/docker-kafka-kraft:latest
+    restart: always
+    ports:
+      - "9093:9093"
+    environment:
+      - KRAFT_CONTAINER_HOST_NAME=kafka
+      - KRAFT_CREATE_TOPICS=topic-a,topic-b,topic-c,topic-d
+      - KRAFT_PARTITIONS_PER_TOPIC=3
+
+  fake-producer:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    command: bash -c "seq 42 | kafka-console-producer --request-required-acks 1 --broker-list kafka:9092 --topic topic-a && echo 'Produced 42 messages.'"
+
+  fake-consumer:
+    image: confluentinc/cp-kafka:latest
+    depends_on:
+      - kafka
+    command: bash -c "kafka-console-consumer --bootstrap-server kafka:9092 --topic topic-a --from-beginning --max-messages 42"
+
+  console:
+    image: docker.redpanda.com/vectorized/console:latest
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      - KAFKA_BROKERS=kafka:9092
