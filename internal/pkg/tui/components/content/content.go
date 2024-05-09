@@ -3,9 +3,6 @@ package content
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/snakeice/kafkalypse/internal/pkg/data"
-	"github.com/snakeice/kafkalypse/internal/pkg/kafka"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/table"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
@@ -17,17 +14,7 @@ type ContentModel struct {
 }
 
 func New() ContentModel {
-	client, err := kafka.NewKafkaClient()
-	if err != nil {
-		panic(err)
-	}
-
-	ds := data.NewKafkaTopics(client)
-
-	return ContentModel{
-		title: ds.Name(),
-		table: table.New(ds),
-	}
+	return ContentModel{}
 }
 
 func (m ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {

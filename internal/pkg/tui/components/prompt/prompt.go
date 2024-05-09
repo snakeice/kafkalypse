@@ -92,6 +92,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m, cmd = m.UpdateState(Idle)
 			cmds = append(cmds, cmd)
 		case "enter":
+			if m.State == Idle {
+				break
+			}
 			cmds = append(cmds, toCmd(
 				SubmitMsg{
 					Value: m.Value(),

@@ -11,19 +11,7 @@ import (
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
 
-const (
-	Logo = `╭╮╭━╮╱╱╱╭━┳╮╱╱╱╱╭╮
-┃┃┃╭╯╱╱╱┃╭┫┃╱╱╱╱┃┃
-┃╰╯╯╭━━┳╯╰┫┃╭┳━━┫┃╭╮╱╭┳━━┳━━┳━━╮
-┃╭╮┃┃╭╮┣╮╭┫╰╯┫╭╮┃┃┃┃╱┃┃╭╮┃━━┫┃━┫
-┃┃┃╰┫╭╮┃┃┃┃╭╮┫╭╮┃╰┫╰━╯┃╰╯┣━━┃┃━┫
-╰╯╰━┻╯╰╯╰╯╰╯╰┻╯╰┻━┻━╮╭┫╭━┻━━┻━━╯
-╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╰━━╯╰╯ %s`
-)
-
 type Model struct {
-	logo           string
-	version        string
 	shortcuts      []string
 	connectionInfo connection.ConnectionModel
 	size           tea.WindowSizeMsg
@@ -31,8 +19,6 @@ type Model struct {
 
 func New() Model {
 	return Model{
-		logo:           Logo,
-		version:        "v0.0.1",
 		shortcuts:      []string{},
 		connectionInfo: connection.New(),
 	}
@@ -63,21 +49,13 @@ func (m Model) Init() tea.Cmd {
 }
 
 func (m Model) View() string {
-	styles.HeaderComponent.Height(lipgloss.Height(Logo) + 1)
+	styles.HeaderComponent.Height(3)
 
 	shortcuts := strings.Join(m.shortcuts, "\n")
-	logo := fmt.Sprintf(m.logo, m.version)
 
 	view := lipgloss.JoinHorizontal(lipgloss.Right,
-		styles.HeaderComponent.Render(logo),
+		m.connectionInfo.View(),
 		styles.HeaderComponent.Render(shortcuts),
-	)
-
-	style := styles.HeaderComponent.Copy().Width(m.size.Width - lipgloss.Width(view)).AlignHorizontal(lipgloss.Right)
-
-	view = lipgloss.JoinHorizontal(lipgloss.Right,
-		view,
-		style.Render(m.connectionInfo.View()),
 	)
 
 	return view

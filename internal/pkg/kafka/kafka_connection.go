@@ -4,12 +4,12 @@ import (
 	"github.com/IBM/sarama"
 )
 
-type KafkaClient struct {
+type Service struct {
 	kAdmin  sarama.ClusterAdmin
 	kClient sarama.Client
 }
 
-func NewKafkaClient() (*KafkaClient, error) {
+func NewKafkaClient() (*Service, error) {
 	kClient, err := sarama.NewClient([]string{"localhost:9093"}, nil)
 	if err != nil {
 		return nil, err
@@ -20,13 +20,13 @@ func NewKafkaClient() (*KafkaClient, error) {
 		return nil, err
 	}
 
-	return &KafkaClient{
+	return &Service{
 		kAdmin:  kAdmin,
 		kClient: kClient,
 	}, nil
 }
 
-func (k *KafkaClient) Close() error {
+func (k *Service) Close() error {
 
 	if err := k.kAdmin.Close(); err != nil {
 		return err

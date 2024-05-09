@@ -16,7 +16,7 @@ type TopicDetail struct {
 	Config map[string]string
 }
 
-func (k *KafkaClient) ListTopics() ([]TopicOverview, error) {
+func (k *Service) ListTopics() ([]TopicOverview, error) {
 	topics, err := k.kAdmin.ListTopics()
 	if err != nil {
 		return nil, err
@@ -36,7 +36,7 @@ func (k *KafkaClient) ListTopics() ([]TopicOverview, error) {
 	return topicsOverview, nil
 }
 
-func (k *KafkaClient) TopicDetail(topic *TopicOverview) (*TopicDetail, error) {
+func (k *Service) TopicDetail(topic *TopicOverview) (*TopicDetail, error) {
 	var topicDetail TopicDetail
 
 	topicDetail.TopicOverview = topic

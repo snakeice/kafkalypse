@@ -1,7 +1,23 @@
 package kafka
 
-func (k *KafkaClient) Brokers() ([]string, error) {
-	// return k.kClient.LeastLoadedBroker()
+type Broker struct {
+	ID     int32
+	Host   string
+	Leader bool
+	// TODO: add more fields?
+}
 
-	return nil, nil
+func (k *Service) Brokers() []*Broker {
+	brokers := make([]*Broker, 0)
+
+	for _, broker := range k.kClient.Brokers() {
+		brokers = append(brokers, &Broker{
+			ID:     broker.ID(),
+			Host:   broker.Addr(),
+			Leader: false,
+		})
+	}
+
+	return brokers
+
 }

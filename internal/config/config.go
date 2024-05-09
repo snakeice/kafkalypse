@@ -3,6 +3,7 @@ package config
 import (
 	"os"
 	"sync"
+	"time"
 
 	"github.com/pkg/errors"
 	"github.com/spf13/viper"
@@ -13,21 +14,25 @@ var (
 )
 
 type Configuration struct {
-	Contexts map[string]*Context `yaml:"contexts"`
+	ApiVersion string              `yaml:"apiVersion"`
+	Kind       string              `yaml:"kind"`
+	Contexts   map[string]*Context `yaml:"contexts"`
 
 	CurrentContext string `yaml:"currentContext"`
 
-	RefreshInterval int `yaml:"refreshInterval"`
+	RefreshInterval time.Duration `yaml:"refreshInterval"`
 }
 
 func LoadConfig() (*Configuration, error) {
 	sync.OnceFunc(func() {
 		viper.SetDefault("contexts", map[string]Context{})
 		viper.SetDefault("currentContext", "")
-		viper.SetDefault("refreshInterval", 5)
+		viper.SetDefault("refreshInterval", 10*time.Second)
+		viper.SetDefault("apiVersion", "v1")
+		viper.SetDefault("kind", "KafkalypseConfig")
 	})
 
-	viper.SetConfigName("kafkalypse")
+	viper.SetConfigName("config")
 	viper.AddConfigPath(ConfigDir)
 	viper.AddConfigPath(".")
 	viper.SetConfigType("yaml")

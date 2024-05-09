@@ -6,35 +6,29 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/content"
+	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/header"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/prompt"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/pagesstack"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/shortcut"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/uicontext"
 )
 
 type ContainerModule struct {
-	header    tea.Model
-	prompt    tea.Model
-	stack     *pagesstack.PagesStack
-	uiContext *uicontext.UIContext
+	header tea.Model
+	prompt tea.Model
 }
 
 func NewContainerModule() ContainerModule {
 	return ContainerModule{
 		header: header.New(),
-		prompt: prompt.New(true),
-		stack:  pagesstack.NewPagesStack(),
 
-		uiContext: &uicontext.UIContext{},
+		prompt: prompt.New(true),
 	}
 }
 
 func (m ContainerModule) calculateContentHeight() int {
-	var height = m.uiContext.ScreenHeight
+	height := constants.WindowHeight
 	height -= lipgloss.Height(m.header.View())
 	if m.prompt.(prompt.Model).State != prompt.Idle {
 		height -= lipgloss.Height(m.prompt.View())
@@ -56,12 +50,8 @@ func (m ContainerModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case messages.ComponentRefreshMessage:
-		cmd = m.stack.Update(messages.ComponentSizeMessage{
-			Height: m.calculateContentHeight() - 2,
-			Width:  m.uiContext.ScreenWidth - 2,
-		})
 
-		cmds = append(cmds, cmd, m.tick())
+		// cmds = append(cmds, cmd, m.tick())
 
 		return m, tea.Batch(cmds...)
 
@@ -73,17 +63,12 @@ func (m ContainerModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		return m, tea.Batch(cmds...)
 
-	case tea.WindowSizeMsg:
-		m.uiContext.Update(msg)
 	}
 
 	m.header, cmd = m.header.Update(msg)
 	cmds = append(cmds, cmd)
 
 	m.prompt, cmd = m.prompt.Update(msg)
-	cmds = append(cmds, cmd)
-
-	cmd = m.stack.Update(msg)
 	cmds = append(cmds, cmd)
 
 	// m.footer, cmd = m.footer.Update(msg)
@@ -97,13 +82,9 @@ func (m ContainerModule) View() string {
 
 	components = append(components, m.header.View())
 
-	if view := m.prompt.View(); view != "" {
+	if view := m.prompt.View(); view != "" || true {
 		components = append(components, view)
 	}
-
-	components = append(components,
-		m.stack.View(),
-	)
 
 	view := lipgloss.JoinVertical(
 		lipgloss.Top,
@@ -114,8 +95,6 @@ func (m ContainerModule) View() string {
 }
 
 func (m ContainerModule) Init() tea.Cmd {
-	m.stack.Push(content.New())
-
 	return tea.Batch(
 		textinput.Blink,
 		messages.ComponentRefresh,
@@ -141,4 +120,12 @@ func (m ContainerModule) getMainShortcuts() []shortcut.Action {
 			Action: "Help",
 		},
 	}
+}
+
+func (m ContainerModule) Active() (tea.Model, tea.Cmd) {
+	return m, m.Init()
+}
+
+func (m ContainerModule) Deactivate() (tea.Model, tea.Cmd) {
+	return m, nil
 }
