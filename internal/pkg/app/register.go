@@ -50,3 +50,11 @@ func (p *Page) Update(msg tea.Msg) tea.Cmd {
 
 	return cmd
 }
+
+func (p *Page) Init() tea.Cmd {
+	return p.Component.Init()
+}
+
+func (p *Page) View() string {
+	return p.Component.View()
+}

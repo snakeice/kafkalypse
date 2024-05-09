@@ -1,6 +1,9 @@
 package welcome
 
 import (
+	"fmt"
+	"time"
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
@@ -22,16 +25,20 @@ type WelcomeDone struct{}
 
 type WelcomeModule struct {
 	figString string
+	msg       string
 }
 
 func NewWelcome(msg string, returnMsg tea.Msg) WelcomeModule {
 	return WelcomeModule{
 		figString: ART,
+		msg:       msg,
 	}
 }
 
 func (w WelcomeModule) Init() tea.Cmd {
-	return nil
+	return tea.Tick(1*time.Second, func(time.Time) tea.Msg {
+		return WelcomeDone{}
+	})
 }
 
 func (w WelcomeModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -47,5 +54,5 @@ func (w WelcomeModule) View() string {
 		Width(constants.WindowWidth - 2).
 		Height(constants.WindowHeight - 2)
 
-	return style.Render(w.figString)
+	return style.Render(fmt.Sprintf(w.figString, w.msg))
 }
