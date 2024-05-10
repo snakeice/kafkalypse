@@ -7,7 +7,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
+	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/shortcut"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
@@ -41,8 +41,6 @@ type Model struct {
 	viewport viewport.Model
 	focus    bool
 	cursor   int
-
-	uiSize messages.ComponentSizeMessage
 
 	KeyMap KeyMap
 
@@ -100,16 +98,10 @@ func New(datasource datasource) Model {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
-	case messages.ComponentSizeMessage:
-		if m.uiSize == msg {
-			return m, nil
-		}
-
-		m.uiSize = msg
-
-		m.viewport.Height = m.uiSize.Height - 1 // 3 for the header
-		m.viewport.Width = m.uiSize.Width
-
+	// TODO: check if we need to handle this or create a new message from parent component
+	case tea.WindowSizeMsg:
+		m.viewport.Height = msg.Height - 1 // 3 for the header
+		m.viewport.Width = msg.Width
 		m.updateViewport()
 	case tea.KeyMsg:
 		// if !m.focus {
@@ -181,7 +173,7 @@ func (m *Model) headersView() string {
 	var s = make([]string, len(m.datasource.Cols()))
 
 	for i, col := range m.datasource.Cols() {
-		width := int(float64(m.uiSize.Width) * col.Perc)
+		width := int(float64(constants.WindowWidth) * col.Perc)
 
 		style := lipgloss.NewStyle().
 			Width(width).
@@ -192,7 +184,7 @@ func (m *Model) headersView() string {
 	}
 
 	return styles.TableHeader.
-		Width(m.uiSize.Width).
+		Width(constants.WindowWidth).
 		Render(lipgloss.JoinHorizontal(lipgloss.Left, s...))
 }
 
@@ -202,7 +194,7 @@ func (m *Model) renderRow(index int) string {
 	rowData := m.datasource.At(index)
 
 	for i, col := range m.datasource.Cols() {
-		width := int(float64(m.uiSize.Width) * col.Perc)
+		width := int(float64(constants.WindowWidth) * col.Perc)
 
 		style := lipgloss.NewStyle().
 			Width(width).

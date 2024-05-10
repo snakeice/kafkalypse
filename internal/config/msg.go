@@ -4,18 +4,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
-type (
-	NoDefaultContextFound struct{}
-	NotFoundAnyContext    struct{}
-)
+type ConfigMsg struct {
+	Config *Configuration
+	Err    error
+}
 
-func LoadDefaultContext() tea.Cmd {
+func LoadConfiguration() tea.Cmd {
 	return func() tea.Msg {
 		config, err := LoadConfig()
 		if err != nil {
-			return err
+			return ConfigMsg{nil, err}
 		}
 
-		return config
+		return ConfigMsg{config, nil}
 	}
 }

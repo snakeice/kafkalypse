@@ -2,7 +2,9 @@ package app
 
 import (
 	"fmt"
+	"log"
 	"os"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -10,10 +12,10 @@ import (
 	"github.com/snakeice/kafkalypse/internal/config"
 	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/kafka"
+	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/connection"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/components/prompt"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/consumers"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/container"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/context"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/topics"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/welcome"
@@ -22,13 +24,13 @@ import (
 type App struct {
 	appConfig       *config.Configuration
 	kafkaConnection *kafka.Service
-	pages           Pages
+	pages           *Pages
 
 	currentPage string
 }
 
 func NewApp() *App {
-	if len(os.Getenv("DEBUG")) > 0 {
+	if len(os.Getenv("DEBUG")) > 0 || true {
 		f, err := tea.LogToFile("debug.log", "debug")
 		if err != nil {
 			fmt.Println("fatal:", err)
@@ -39,30 +41,67 @@ func NewApp() *App {
 
 	lipgloss.SetHasDarkBackground(termenv.HasDarkBackground())
 
-	pages := Pages{
-		NewPage("Welcome", welcome.NewWelcome("Hello my friend...", nil), false),
-		NewPage("Main", container.NewContainerModule(), false, "main", "home", "m"),
-		NewPage("Contexts", context.NewContextList(&config.Configuration{}), true, "context", "ctx"),
-		NewPage("Topics", topics.NewTopics(), true, "topic", "t"),
-		NewPage("Consumers", consumers.NewConsumers(), true, "consumer", "c"),
-		NewPage("Brokers", nil, true, "broker", "b"),
-		NewPage("Producers", nil, true, "producer", "p"),
-		NewPage("ACLs", nil, true, "acl", "a"),
+	app := App{
+		currentPage: "welcome",
+		appConfig: &config.Configuration{
+			Contexts: map[string]*config.Context{
+				"adas": nil,
+				"test": nil,
+			},
+		},
 	}
 
-	return &App{
-		pages:       pages,
-		currentPage: "welcome",
-	}
+	pages := &Pages{}
+
+	pages.NewPage("Welcome", welcome.NewWelcome("Hello my friend...", nil), false)
+	pages.NewPage("Main", nil, false, "main", "home", "m")
+	pages.NewPage("Contexts", context.NewContextList(app.appConfig), true, "context", "ctx")
+	pages.NewPage("Topics", topics.NewTopics(), true, "topic", "t")
+	pages.NewPage("Consumers", consumers.NewConsumers(), true, "consumer", "c")
+	pages.NewPage("Brokers", nil, true, "broker", "b")
+	pages.NewPage("Producers", nil, true, "producer", "p")
+	pages.NewPage("ACLs", nil, true, "acl", "a")
+
+	app.pages = pages
+	return &app
 }
 
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
 	switch msg := msg.(type) {
-	case config.Configuration:
-		a.appConfig = &msg
-		return a, nil
+	case config.ConfigMsg:
+		if msg.Err != nil {
+			log.Printf("error: %s", msg.Err)
+			return a, tea.Quit
+		}
+
+		a.appConfig = msg.Config
+
+		if a.appConfig.CurrentContext == "" {
+			cmds = append(cmds, messages.NavigateTo("contexts"))
+		} else {
+			cmds = append(cmds, messages.NavigateTo("main"),
+				kafka.Connect(*a.appConfig.GetCurrentContext()))
+		}
+
+		return a, tea.Batch(cmds...)
+
+	case kafka.KafkaConnectionMsg:
+		if msg.Err != nil {
+			log.Printf("error: %s", msg.Err)
+			time.Sleep(5 * time.Second)
+			return a, messages.NavigateTo("contexts", true)
+
+		}
+
+		a.kafkaConnection = msg.Svc
+		cmds = append(cmds, connection.ConnectionUpdate(connection.ConnectionInfoMsg{
+			Brokers:        a.kafkaConnection.BrokersStr(),
+			ConectionState: "Connected",
+			KafkaVersion:   a.kafkaConnection.Version(),
+		}))
+
 	case messages.NavigateToMessage:
 		page := a.pages.GetPage(msg.Component)
 		a.currentPage = msg.Component
@@ -94,7 +133,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (a *App) Init() tea.Cmd {
-	return tea.Batch(config.LoadDefaultContext(), a.pages.GetPage(a.currentPage).Init())
+	return tea.Batch(config.LoadConfiguration(), a.pages.GetPage(a.currentPage).Init())
 }
 
 func (a *App) View() string {

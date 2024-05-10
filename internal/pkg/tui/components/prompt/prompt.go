@@ -3,7 +3,7 @@ package prompt
 import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
+	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
 
@@ -25,12 +25,10 @@ type Model struct {
 	input    textinput.Model
 	State    State
 	idleHide bool
-	size     tea.WindowSizeMsg
 }
 
 func New(idleHide bool) Model {
 	ti := textinput.New()
-	// ti.BackgroundStyle = styles.TableStyle
 	ti.TextStyle.MaxHeight(65)
 
 	m := Model{
@@ -59,7 +57,6 @@ func (m Model) UpdateState(state State) (Model, tea.Cmd) {
 		cmds = append(cmds, cmd)
 	}
 	m.State = state
-	cmds = append(cmds, messages.ComponentRefresh)
 	return m, tea.Batch(cmds...)
 }
 
@@ -105,9 +102,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 
-	case tea.WindowSizeMsg:
-		m.size = msg
-
 	case SubmitMsg:
 		if msg.Value == "q" && msg.State == EditingCommand {
 			return m, tea.Quit
@@ -123,7 +117,7 @@ func (m Model) View() string {
 	}
 
 	view := styles.TableStyle.Copy().
-		Width(m.size.Width - 2).
+		Width(constants.WindowWidth - 2).
 		Render(m.input.View())
 	return view
 }

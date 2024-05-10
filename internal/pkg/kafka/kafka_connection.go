@@ -4,6 +4,11 @@ import (
 	"github.com/IBM/sarama"
 )
 
+type KafkaConnectionMsg struct {
+	Svc *Service
+	Err error
+}
+
 type Service struct {
 	kAdmin  sarama.ClusterAdmin
 	kClient sarama.Client

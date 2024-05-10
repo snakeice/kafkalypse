@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/list"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/snakeice/kafkalypse/internal/config"
+	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
 
@@ -32,8 +33,6 @@ func (m ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			break
 		}
 
-		switch {
-		}
 	}
 	newListModel, cmd := m.list.Update(msg)
 	m.list = newListModel
@@ -43,6 +42,8 @@ func (m ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m ContextList) View() string {
+	h, v := styles.TableStyle.GetFrameSize()
+	m.list.SetSize(constants.WindowWidth-h, constants.WindowHeight-v)
 	return styles.TableStyle.Render(m.list.View())
 }
 

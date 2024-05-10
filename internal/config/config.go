@@ -59,6 +59,10 @@ func LoadConfig() (*Configuration, error) {
 	return &config, nil
 }
 
+func (c *Configuration) GetCurrentContext() *Context {
+	return c.Contexts[c.CurrentContext]
+}
+
 func (c *Configuration) SaveConfig() error {
 	return viper.WriteConfig()
 }

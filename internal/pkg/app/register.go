@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/snakeice/kafkalypse/internal/pkg/tui/pages/container"
 )
 
 type PageModel interface {
@@ -22,9 +23,13 @@ func NewPage(title string, model PageModel, canAcess bool, aliases ...string) *P
 	return &Page{
 		Title:     title,
 		Aliases:   aliases,
-		Component: model,
+		Component: container.NewContainerModule(model),
 		CanAcess:  canAcess,
 	}
+}
+
+func (p *Pages) NewPage(title string, model PageModel, canAcess bool, aliases ...string) {
+	*p = append(*p, NewPage(title, model, canAcess, aliases...))
 }
 
 func (p *Pages) GetPage(n string) *Page {

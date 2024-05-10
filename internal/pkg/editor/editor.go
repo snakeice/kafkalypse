@@ -14,7 +14,7 @@ type Modified struct {
 }
 
 func EditText(in, ext string) (*Modified, error) {
-	tmpFile, err := os.CreateTemp(fmt.Sprintf("*.", ext), "kafkalypse")
+	tmpFile, err := os.CreateTemp(fmt.Sprintf("*.%s", ext), "kafkalypse")
 	if err != nil {
 		return nil, fmt.Errorf("failed to create temporary file: %w", err)
 	}

@@ -14,7 +14,6 @@ import (
 type Model struct {
 	shortcuts      []string
 	connectionInfo connection.ConnectionModel
-	size           tea.WindowSizeMsg
 }
 
 func New() Model {
@@ -26,9 +25,6 @@ func New() Model {
 
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
-	case tea.WindowSizeMsg:
-		m.size = msg
-
 	case messages.UpdateShortcutsMessage:
 		newShortcuts := make([]string, len(msg.Shortcuts))
 
@@ -38,10 +34,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		m.shortcuts = newShortcuts
 
-		return m, messages.ComponentRefresh
+		return m, nil
 	}
 
-	return m, nil
+	connInfo, cmd := m.connectionInfo.Update(msg)
+	m.connectionInfo = connInfo.(connection.ConnectionModel)
+
+	return m, cmd
+
 }
 
 func (m Model) Init() tea.Cmd {

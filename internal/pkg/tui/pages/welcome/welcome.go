@@ -26,12 +26,14 @@ type WelcomeDone struct{}
 type WelcomeModule struct {
 	figString string
 	msg       string
+	returnMsg tea.Msg
 }
 
 func NewWelcome(msg string, returnMsg tea.Msg) WelcomeModule {
 	return WelcomeModule{
 		figString: ART,
 		msg:       msg,
+		returnMsg: returnMsg,
 	}
 }
 
@@ -45,7 +47,9 @@ func (w WelcomeModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg.(type) {
 	case WelcomeDone:
 		return w, messages.NavigateTo("main", true)
+
 	}
+
 	return w, nil
 }
 

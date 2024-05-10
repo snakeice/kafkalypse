@@ -3,14 +3,13 @@ package content
 import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/messages"
+	"github.com/snakeice/kafkalypse/internal/pkg/constants"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
 
 type ContentModel struct {
-	title  string
-	uiSize messages.ComponentSizeMessage
-	table  tea.Model
+	title string
+	table tea.Model
 }
 
 func New() ContentModel {
@@ -18,9 +17,6 @@ func New() ContentModel {
 }
 
 func (m ContentModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(messages.ComponentSizeMessage); ok {
-		m.uiSize = msg
-	}
 
 	var cmd tea.Cmd
 
@@ -33,7 +29,7 @@ func (m ContentModel) View() string {
 
 	border := "╭"
 
-	center := (m.uiSize.Width - 2 - lipgloss.Width(m.title)) / 2
+	center := (constants.WindowWidth - 2 - lipgloss.Width(m.title)) / 2
 
 	for i := 0; i < center; i++ {
 		border += "─"
@@ -41,7 +37,7 @@ func (m ContentModel) View() string {
 
 	border += " " + m.title + " "
 
-	for i := lipgloss.Width(border); i < m.uiSize.Width+1; i++ {
+	for i := lipgloss.Width(border); i < constants.WindowWidth+1; i++ {
 		border += "─"
 	}
 
@@ -52,8 +48,8 @@ func (m ContentModel) View() string {
 
 		styles.TableStyle.Copy().
 			BorderTop(false).
-			Width(m.uiSize.Width).
-			Height(m.uiSize.Height).
+			Width(constants.WindowWidth).
+			Height(constants.WindowHeight).
 			Render(m.table.View()),
 	)
 }
