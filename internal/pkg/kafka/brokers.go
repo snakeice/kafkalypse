@@ -1,11 +1,5 @@
 package kafka
 
-import (
-	"strconv"
-
-	"github.com/IBM/sarama"
-)
-
 type Broker struct {
 	ID     int32
 	Host   string
@@ -13,11 +7,6 @@ type Broker struct {
 	// TODO: add more fields?
 }
 
-func (k *Service) Version() string {
-	metadata, _ := k.kClient.Brokers()[0].GetMetadata(&sarama.MetadataRequest{})
-	return strconv.Itoa(int(metadata.Version))
-
-}
 func (k *Service) BrokersStr() []string {
 	brokers := make([]string, 0)
 

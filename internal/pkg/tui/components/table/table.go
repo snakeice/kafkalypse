@@ -8,9 +8,16 @@ import (
 	"github.com/mattn/go-runewidth"
 
 	"github.com/snakeice/kafkalypse/internal/pkg/constants"
-	"github.com/snakeice/kafkalypse/internal/pkg/tui/shortcut"
 	"github.com/snakeice/kafkalypse/internal/pkg/tui/styles"
 )
+
+type Update struct{}
+
+func UpdateCmd() tea.Cmd {
+	return func() tea.Msg {
+		return Update{}
+	}
+}
 
 type ColHead struct {
 	Name string
@@ -20,7 +27,6 @@ type ColHead struct {
 type datasource interface {
 	Len() int
 	At(int) []string
-	Shortcuts() []shortcut.Action
 	Cols() []ColHead
 }
 
@@ -36,7 +42,7 @@ type KeyMap struct {
 }
 
 type Model struct {
-	datasource datasource
+	Datasource datasource
 
 	viewport viewport.Model
 	focus    bool
@@ -86,10 +92,10 @@ func DefaultKeyMap() KeyMap {
 	}
 }
 
-func New(datasource datasource) Model {
+func NewTable(datasource datasource) Model {
 	return Model{
 		viewport:   viewport.New(0, 10),
-		datasource: datasource,
+		Datasource: datasource,
 		cursor:     0,
 		KeyMap:     DefaultKeyMap(),
 	}
@@ -98,6 +104,8 @@ func New(datasource datasource) Model {
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 	switch msg := msg.(type) {
+	case Update:
+		m.updateViewport()
 	// TODO: check if we need to handle this or create a new message from parent component
 	case tea.WindowSizeMsg:
 		m.viewport.Height = msg.Height - 1 // 3 for the header
@@ -132,7 +140,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *Model) MoveUp(n int) {
-	m.cursor = clamp(m.cursor-n, 0, m.datasource.Len()-1)
+	m.cursor = clamp(m.cursor-n, 0, m.Datasource.Len()-1)
 
 	switch {
 	case m.start == 0:
@@ -147,11 +155,11 @@ func (m *Model) MoveUp(n int) {
 }
 
 func (m *Model) MoveDown(n int) {
-	m.cursor = clamp(m.cursor+n, 0, m.datasource.Len()-1)
+	m.cursor = clamp(m.cursor+n, 0, m.Datasource.Len()-1)
 	m.updateViewport()
 
 	switch {
-	case m.end == m.datasource.Len():
+	case m.end == m.Datasource.Len():
 		m.viewport.SetYOffset(clamp(m.viewport.YOffset-n, 1, m.viewport.Height))
 	case m.cursor > (m.end-m.start)/2:
 		m.viewport.SetYOffset(clamp(m.viewport.YOffset-n, 1, m.cursor))
@@ -166,13 +174,13 @@ func (m *Model) GotoTop() {
 }
 
 func (m *Model) GotoBottom() {
-	m.MoveDown(m.datasource.Len())
+	m.MoveDown(m.Datasource.Len())
 }
 
 func (m *Model) headersView() string {
-	var s = make([]string, len(m.datasource.Cols()))
+	var s = make([]string, len(m.Datasource.Cols()))
 
-	for i, col := range m.datasource.Cols() {
+	for i, col := range m.Datasource.Cols() {
 		width := int(float64(constants.WindowWidth) * col.Perc)
 
 		style := lipgloss.NewStyle().
@@ -189,11 +197,11 @@ func (m *Model) headersView() string {
 }
 
 func (m *Model) renderRow(index int) string {
-	var s = make([]string, len(m.datasource.Cols()))
+	var s = make([]string, len(m.Datasource.Cols()))
 
-	rowData := m.datasource.At(index)
+	rowData := m.Datasource.At(index)
 
-	for i, col := range m.datasource.Cols() {
+	for i, col := range m.Datasource.Cols() {
 		width := int(float64(constants.WindowWidth) * col.Perc)
 
 		style := lipgloss.NewStyle().
@@ -212,7 +220,7 @@ func (m *Model) renderRow(index int) string {
 }
 
 func (m *Model) updateViewport() {
-	rows := make([]string, 0, m.datasource.Len())
+	rows := make([]string, 0, m.Datasource.Len())
 
 	if m.cursor >= 0 {
 		m.start = clamp(m.cursor-m.viewport.Height, 0, m.cursor)
@@ -220,7 +228,7 @@ func (m *Model) updateViewport() {
 		m.start = 0
 	}
 
-	m.end = clamp(m.cursor+m.viewport.Height, m.cursor, m.datasource.Len())
+	m.end = clamp(m.cursor+m.viewport.Height, m.cursor, m.Datasource.Len())
 
 	for i := m.start; i < m.end; i++ {
 		rows = append(rows, m.renderRow(i))

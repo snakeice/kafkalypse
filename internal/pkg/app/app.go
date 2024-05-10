@@ -45,8 +45,12 @@ func NewApp() *App {
 		currentPage: "welcome",
 		appConfig: &config.Configuration{
 			Contexts: map[string]*config.Context{
-				"adas": nil,
-				"test": nil,
+				"adas": {
+					BootstrapServers: "localhost:9092",
+				},
+				"test": {
+					BootstrapServers: "localhost:9092",
+				},
 			},
 		},
 	}
@@ -66,6 +70,7 @@ func NewApp() *App {
 	return &app
 }
 
+//gocyclo:ignore
 func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
@@ -95,12 +100,16 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		}
 
-		a.kafkaConnection = msg.Svc
-		cmds = append(cmds, connection.ConnectionUpdate(connection.ConnectionInfoMsg{
-			Brokers:        a.kafkaConnection.BrokersStr(),
-			ConectionState: "Connected",
-			KafkaVersion:   a.kafkaConnection.Version(),
-		}))
+		if a.kafkaConnection == nil {
+			a.kafkaConnection = msg.Svc
+			cmds = append(cmds, connection.ConnectionUpdate(connection.ConnectionInfoMsg{
+				Brokers:        a.kafkaConnection.BrokersStr(),
+				ConectionState: "Connected",
+				KafkaVersion:   a.kafkaConnection.Version(),
+			}))
+
+			cmds = append(cmds, messages.NavigateTo("topics", true))
+		}
 
 	case messages.NavigateToMessage:
 		page := a.pages.GetPage(msg.Component)
@@ -124,12 +133,23 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.String() == "ctrl+c" {
 			return a, tea.Quit
 		}
+
+	case kafka.GetConnMsg:
+		return a, a.sendConnection()
 	}
 
 	cmd := a.pages.GetPage(a.currentPage).Update(msg)
 	cmds = append(cmds, cmd)
 
 	return a, tea.Batch(cmds...)
+}
+
+func (a *App) sendConnection() tea.Cmd {
+	return func() tea.Msg {
+		return kafka.KafkaConnectionMsg{
+			Svc: a.kafkaConnection,
+		}
+	}
 }
 
 func (a *App) Init() tea.Cmd {

@@ -25,11 +25,18 @@ func (k *Service) ListTopics() ([]TopicOverview, error) {
 	var topicsOverview []TopicOverview
 
 	for topic, detail := range topics {
+		descriptions, err := k.kAdmin.DescribeTopics([]string{topic})
+		if err != nil {
+			return nil, err
+		}
+
+		desc := descriptions[0]
+
 		topicsOverview = append(topicsOverview, TopicOverview{
 			Name:        topic,
 			Partitions:  detail.NumPartitions,
 			Replication: detail.ReplicationFactor,
-			IsInternal:  false, // TODO: check if topic is internal
+			IsInternal:  desc.IsInternal,
 		})
 	}
 

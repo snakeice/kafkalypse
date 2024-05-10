@@ -55,19 +55,19 @@ func NewContextList(config *config.Configuration) *ContextList {
 }
 
 type item struct {
-	title string
-	ctx   *config.Context
+	name string
+	ctx  *config.Context
 }
 
-func (i item) Title() string       { return i.title }
-func (i item) Description() string { return i.title }
-func (i item) FilterValue() string { return i.title }
+func (i item) Title() string       { return i.name }
+func (i item) Description() string { return i.ctx.BootstrapServers }
+func (i item) FilterValue() string { return i.name + i.ctx.BootstrapServers }
 
 func ctxToListItem(config *config.Configuration) []list.Item {
 	items := []list.Item{}
 
-	for title, ctx := range config.Contexts {
-		items = append(items, item{title: title, ctx: ctx})
+	for name, ctx := range config.Contexts {
+		items = append(items, item{name: name, ctx: ctx})
 	}
 
 	return items

@@ -2,12 +2,17 @@ package kafka
 
 import (
 	"github.com/IBM/sarama"
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 type KafkaConnectionMsg struct {
 	Svc *Service
 	Err error
 }
+
+type GetConnMsg struct{}
+
+func GetConn() tea.Cmd { return func() tea.Msg { return GetConnMsg{} } }
 
 type Service struct {
 	kAdmin  sarama.ClusterAdmin
