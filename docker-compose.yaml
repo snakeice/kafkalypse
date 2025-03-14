@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   kafka:
     image: moeenz/docker-kafka-kraft:latest
@@ -9,6 +7,16 @@ services:
     environment:
       - KRAFT_CONTAINER_HOST_NAME=kafka
       - KRAFT_CREATE_TOPICS=topic-a,topic-b,topic-c,topic-d
+      - KRAFT_PARTITIONS_PER_TOPIC=3
+
+  kafka2:
+    image: moeenz/docker-kafka-kraft:latest
+    restart: always
+    ports:
+      - "9094:9093"
+    environment:
+      - KRAFT_CONTAINER_HOST_NAME=kafka
+      - KRAFT_CREATE_TOPICS=topic-2a,topic-2b,topic-2c,topic-2d
       - KRAFT_PARTITIONS_PER_TOPIC=3
 
   fake-producer:
@@ -21,10 +29,10 @@ services:
     image: confluentinc/cp-kafka:latest
     depends_on:
       - kafka
-    command: bash -c "kafka-console-consumer --bootstrap-server kafka:9092 --topic topic-a --from-beginning --max-messages 42"
+    command: bash -c "kafka-console-consumer --bootstrap-server kafka:9092 --topic topic-a --from-beginning"
 
   console:
-    image: docker.redpanda.com/vectorized/console:latest
+    image: docker.redpanda.com/redpandadata/console
     depends_on:
       - kafka
     ports:

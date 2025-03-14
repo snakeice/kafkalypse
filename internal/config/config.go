@@ -9,14 +9,10 @@ import (
 	"github.com/spf13/viper"
 )
 
-var (
-	ConfigDir = os.ExpandEnv("$HOME/.kafkalypse")
-)
-
 type Configuration struct {
-	ApiVersion string              `yaml:"apiVersion"`
-	Kind       string              `yaml:"kind"`
-	Contexts   map[string]*Context `yaml:"contexts"`
+	ApiVersion string                   `yaml:"apiVersion"`
+	Kind       string                   `yaml:"kind"`
+	Contexts   map[string]*KafkaContext `yaml:"contexts"`
 
 	CurrentContext string `yaml:"currentContext"`
 
@@ -25,17 +21,19 @@ type Configuration struct {
 
 func LoadConfig() (*Configuration, error) {
 	sync.OnceFunc(func() {
-		viper.SetDefault("contexts", map[string]Context{})
+		viper.SetDefault("contexts", map[string]KafkaContext{})
 		viper.SetDefault("currentContext", "")
 		viper.SetDefault("refreshInterval", 10*time.Second)
 		viper.SetDefault("apiVersion", "v1")
 		viper.SetDefault("kind", "KafkalypseConfig")
-	})
+	})()
 
+	ConfigDir := os.ExpandEnv("$HOME/.kafkalypse")
+
+	viper.SetConfigType("yaml")
 	viper.SetConfigName("config")
 	viper.AddConfigPath(ConfigDir)
 	viper.AddConfigPath(".")
-	viper.SetConfigType("yaml")
 
 	err := viper.ReadInConfig()
 	if _, ok := err.(viper.ConfigFileNotFoundError); ok {
@@ -59,7 +57,7 @@ func LoadConfig() (*Configuration, error) {
 	return &config, nil
 }
 
-func (c *Configuration) GetCurrentContext() *Context {
+func (c *Configuration) GetCurrentContext() *KafkaContext {
 	return c.Contexts[c.CurrentContext]
 }
 

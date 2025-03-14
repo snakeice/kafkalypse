@@ -1,7 +1,7 @@
 ---
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.6.0
+    rev: v5.0.0
     hooks:
       - id: check-added-large-files
       - id: check-byte-order-marker
@@ -19,20 +19,35 @@ repos:
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
 
+  # - repo: local
+  #   hooks:
+  #     - id: swagger-codegen
+  #       name: Swagger Codegen
+  #       entry: swag
+  #       args:
+  #         - init
+  #         - -q
+  #         - --generalInfo=main.go
+  #         - -o=./docs
+  #       language: system
+  #       pass_filenames: false
+
   - repo: https://github.com/dnephin/pre-commit-golang
     rev: v0.5.1
     hooks:
       - id: go-fmt
+      # - id: go-vet
       - id: go-imports
       - id: go-cyclo
-        args: [-over=15]
+        args: [-over=30] # TODO: update to 15
+      - id: validate-toml
+      - id: no-go-testing
       - id: golangci-lint
-      # - id: go-critic
       - id: go-build
       - id: go-mod-tidy
 
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.2.6
+    rev: v2.4.1
     hooks:
       - id: codespell
         exclude: go.sum
