@@ -138,12 +138,12 @@ func (t Topics) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, kafka.CreateTopic(name, int32(partitions), int16(replication)))
 		}
 
-	case kafka.TickMsg:
-		// Auto-refresh topics
-		t.lastRefresh = time.Time(msg)
-		cmds = append(cmds, kafka.ListTopics())
-		// Schedule next tick
-		cmds = append(cmds, kafka.Tick())
+	// case kafka.TickMsg:
+	// 	// Auto-refresh topics
+	// 	t.lastRefresh = time.Time(msg)
+	// 	cmds = append(cmds, kafka.ListTopics())
+	// 	// Schedule next tick
+	// 	cmds = append(cmds, kafka.Tick())
 
 	case kafka.KafkaConnectionRes:
 		if msg.Err != nil {
@@ -200,6 +200,12 @@ func (t Topics) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	tbl, cmd := t.tbl.Update(msg)
+	t.tbl = tbl.(table.Model)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+
 	return t, tea.Batch(cmds...)
 }
 
@@ -217,7 +223,7 @@ func (t Topics) View() string {
 		return "Error: " + t.error.Error()
 	}
 	if len(t.topicList) == 0 {
-		return "No topics found. " + t.shortcuts.GetHelpText() + "\nLast refresh: " + t.lastRefresh.Format("15:04:05")
+		return "No topics found. " + "\nLast refresh: " + t.lastRefresh.Format("15:04:05")
 	}
 	return t.tbl.View() + "\nLast refresh: " + t.lastRefresh.Format("15:04:05") + "\n" + t.shortcuts.GetHelpText()
 }

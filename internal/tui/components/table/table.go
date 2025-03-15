@@ -7,8 +7,8 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/mattn/go-runewidth"
 
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/tools"
+	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
 
@@ -51,6 +51,8 @@ type Model struct {
 
 	start int
 	end   int
+
+	sz messages.SizeMsg
 }
 
 func DefaultKeyMap() KeyMap {
@@ -106,7 +108,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case Update:
 		m.updateViewport()
-	case tea.WindowSizeMsg:
+	case messages.SizeMsg:
+		m.sz = msg
 		m.viewport.Height = msg.Height - 1 // 3 for the header
 		m.viewport.Width = msg.Width
 		m.updateViewport()
@@ -180,7 +183,7 @@ func (m *Model) headersView() string {
 	var s = make([]string, len(m.Datasource.Cols()))
 
 	for i, col := range m.Datasource.Cols() {
-		width := int(float64(constants.WindowWidth) * col.Perc)
+		width := int(float64(m.sz.Width) * col.Perc)
 
 		style := lipgloss.NewStyle().
 			Width(width).
@@ -191,7 +194,7 @@ func (m *Model) headersView() string {
 	}
 
 	return styles.TableHeader.
-		Width(constants.WindowWidth).
+		Width(m.sz.Width).
 		Render(lipgloss.JoinHorizontal(lipgloss.Left, s...))
 }
 
@@ -201,7 +204,7 @@ func (m *Model) renderRow(index int) string {
 	rowData := m.Datasource.At(index)
 
 	for i, col := range m.Datasource.Cols() {
-		width := int(float64(constants.WindowWidth) * col.Perc)
+		width := int(float64(m.sz.Width) * col.Perc)
 
 		style := lipgloss.NewStyle().
 			Width(width).

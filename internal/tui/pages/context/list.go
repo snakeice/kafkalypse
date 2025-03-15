@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/snakeice/kafkalypse/internal/config"
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/tui/components/shortcuts"
 	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
@@ -21,6 +20,8 @@ type ContextList struct {
 	contexts []string
 	cursor   int
 	offset   int // For scrolling
+
+	sz messages.SizeMsg
 }
 
 func NewContextList(config *config.Configuration) *ContextList {
@@ -128,7 +129,11 @@ func (c *ContextList) updateContextList() {
 }
 
 func (c *ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		c.sz = msg
+		return c, nil
+	case tea.KeyMsg:
 		// Handle navigation keys
 		switch msg.String() {
 		case "up":
@@ -160,7 +165,7 @@ func (c *ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (c *ContextList) maxVisibleItems() int {
-	return constants.WindowHeight - 4 // Account for header, help text, and margins
+	return c.sz.Height - 4
 }
 
 func (c *ContextList) View() string {
@@ -177,7 +182,7 @@ func (c *ContextList) View() string {
 	title := "Kafka Contexts"
 	border := "╭"
 
-	center := (constants.WindowWidth - 2 - lipgloss.Width(title)) / 2
+	center := (c.sz.Width - 2 - lipgloss.Width(title)) / 2
 
 	for range center {
 		border += "─"
@@ -185,7 +190,7 @@ func (c *ContextList) View() string {
 
 	border += " " + title + " "
 
-	for i := lipgloss.Width(border); i < constants.WindowWidth+1; i++ {
+	for i := lipgloss.Width(border); i < c.sz.Width+1; i++ {
 		border += "─"
 	}
 
@@ -194,7 +199,7 @@ func (c *ContextList) View() string {
 
 	if len(c.contexts) == 0 {
 		content += styles.BasicStyle.
-			Width(constants.WindowWidth - 4).
+			Width(c.sz.Width - 4).
 			Align(lipgloss.Center).
 			Render("No contexts found. Press 'n' to create a new context.")
 	} else {
@@ -203,7 +208,7 @@ func (c *ContextList) View() string {
 
 		// Context list
 		listStyle := styles.BasicStyle.
-			Width(constants.WindowWidth - 8).
+			Width(c.sz.Width - 8).
 			MarginLeft(4)
 
 		for i := c.offset; i < endIdx; i++ {
@@ -239,13 +244,13 @@ func (c *ContextList) View() string {
 	// Help text
 	helpStyle := styles.BasicStyle.
 		Faint(true).
-		Width(constants.WindowWidth - 4).
+		Width(c.sz.Width - 4).
 		Align(lipgloss.Center)
 	content += "\n" + helpStyle.Render(c.shortcuts.GetHelpText())
 
 	// Create bottom border
 	bottomBorder := "╰"
-	for i := 1; i < constants.WindowWidth; i++ {
+	for i := 1; i < c.sz.Width; i++ {
 		bottomBorder += "─"
 	}
 	bottomBorder += "╯"
@@ -257,7 +262,7 @@ func (c *ContextList) View() string {
 		BorderBottom(false).
 		BorderLeft(false).
 		BorderRight(false).
-		Width(constants.WindowWidth).
-		Height(constants.WindowHeight).
+		Width(c.sz.Width).
+		Height(c.sz.Height).
 		Render(content)
 }

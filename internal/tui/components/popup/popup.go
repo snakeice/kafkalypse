@@ -4,7 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/snakeice/kafkalypse/internal/constants"
+	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
 
@@ -26,6 +26,8 @@ type Model struct {
 	visible     bool
 	width       int
 	height      int
+
+	sz messages.SizeMsg
 }
 
 func New(title string, fields []Field) Model {
@@ -62,7 +64,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		m.sz = msg
+		for i := range m.inputs {
+			m.inputs[i].Width = m.sz.Width - 10
+		}
+	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
 			m.visible = false
@@ -137,8 +145,8 @@ func (m Model) View() string {
 	}
 
 	// Calculate popup position
-	screenWidth := constants.WindowWidth
-	screenHeight := constants.WindowHeight
+	screenWidth := m.sz.Width
+	screenHeight := m.sz.Height
 
 	// Create popup content
 	var content string

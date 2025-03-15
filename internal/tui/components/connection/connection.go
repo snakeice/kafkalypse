@@ -5,7 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/snakeice/kafkalypse/internal/constants"
+	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
 
@@ -13,6 +13,8 @@ type ConnectionInfoMsg struct {
 	Brokers        []string
 	ConectionState string
 	KafkaVersion   string
+
+	sz messages.SizeMsg
 }
 
 type ConnectionModel struct {
@@ -30,7 +32,11 @@ func New() ConnectionModel {
 }
 
 func (m ConnectionModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(ConnectionInfoMsg); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		m.sz = msg
+
+	case ConnectionInfoMsg:
 		m.Brokers = msg.Brokers
 		m.ConectionState = msg.ConectionState
 		m.KafkaVersion = msg.KafkaVersion
@@ -59,9 +65,9 @@ func (m ConnectionModel) Init() tea.Cmd {
 func (m ConnectionModel) getBrokers() string {
 	brokers := strings.Join(m.Brokers, ", ")
 
-	if lipgloss.Width(brokers) < constants.WindowWidth {
+	if lipgloss.Width(brokers) < m.sz.Width {
 		return brokers
 	}
 
-	return brokers[:constants.WindowWidth] + "..."
+	return brokers[:m.sz.Width] + "..."
 }

@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/snakeice/kafkalypse/internal/config"
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
@@ -30,6 +29,8 @@ type CreateContext struct {
 	cursor     int
 	editing    bool
 	editBuffer string
+
+	sz messages.SizeMsg
 }
 
 func NewCreateContext(cfg *config.Configuration) *CreateContext {
@@ -52,7 +53,12 @@ func (c *CreateContext) Init() tea.Cmd {
 }
 
 func (c *CreateContext) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if msg, ok := msg.(tea.KeyMsg); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		c.sz = msg
+
+	case tea.KeyMsg:
+
 		switch msg.String() {
 		case "ctrl+s":
 			// Save context
@@ -133,7 +139,7 @@ func (c *CreateContext) View() string {
 	title := "Create New Context"
 	border := "╭"
 
-	center := (constants.WindowWidth - 2 - lipgloss.Width(title)) / 2
+	center := (c.sz.Width - 2 - lipgloss.Width(title)) / 2
 
 	for range center {
 		border += "─"
@@ -141,7 +147,7 @@ func (c *CreateContext) View() string {
 
 	border += " " + title + " "
 
-	for i := lipgloss.Width(border); i < constants.WindowWidth+1; i++ {
+	for i := lipgloss.Width(border); i < c.sz.Width+1; i++ {
 		border += "─"
 	}
 
@@ -150,7 +156,7 @@ func (c *CreateContext) View() string {
 
 	// Form fields
 	formStyle := styles.BasicStyle.
-		Width(constants.WindowWidth - 8).
+		Width(c.sz.Width - 8).
 		MarginLeft(4)
 
 	for i, field := range c.fieldOrder {
@@ -177,7 +183,7 @@ func (c *CreateContext) View() string {
 	// Help text
 	helpStyle := styles.BasicStyle.
 		Faint(true).
-		Width(constants.WindowWidth - 4).
+		Width(c.sz.Width - 4).
 		Align(lipgloss.Center)
 
 	content += "\n"
@@ -187,7 +193,7 @@ func (c *CreateContext) View() string {
 
 	// Create bottom border
 	bottomBorder := "╰"
-	for i := 1; i < constants.WindowWidth; i++ {
+	for i := 1; i < c.sz.Width; i++ {
 		bottomBorder += "─"
 	}
 	bottomBorder += "╯"
@@ -199,7 +205,7 @@ func (c *CreateContext) View() string {
 		BorderBottom(false).
 		BorderLeft(false).
 		BorderRight(false).
-		Width(constants.WindowWidth).
-		Height(constants.WindowHeight).
+		Width(c.sz.Width).
+		Height(c.sz.Height).
 		Render(content)
 }

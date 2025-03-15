@@ -1,6 +1,8 @@
 package container
 
 import (
+	"strings"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -19,6 +21,8 @@ type ContainerModule struct {
 	header tea.Model
 	prompt tea.Model
 	body   tea.Model
+
+	sz messages.SizeMsg
 }
 
 func NewContainerModule() ContainerModule {
@@ -28,27 +32,46 @@ func NewContainerModule() ContainerModule {
 	}
 }
 
-// func (m ContainerModule) calculateContentHeight() int {
-// 	height := constants.WindowHeight
-// 	height -= lipgloss.Height(m.header.View())
-// 	if m.prompt.(prompt.Model).State != prompt.Idle {
-// 		height -= lipgloss.Height(m.prompt.View())
-// 	}
-// 	// height -= lipgloss.Height(m.footer.View())
-// 	return height
-// }
+func (m ContainerModule) calculateContentHeight() int {
+	height := m.sz.Height
+	height -= lipgloss.Height(m.header.View())
+	if m.prompt.(prompt.Model).State != prompt.Idle {
+		height -= lipgloss.Height(m.prompt.View())
+	}
+	return height - 4
+}
+
+func (m ContainerModule) calculateContentWidth() int {
+	return m.sz.Width - 2
+}
 
 func (m ContainerModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-
-	if msg, ok := msg.(SetBodyMsg); ok {
-		m.body = msg.Model
-		return m, nil
-	}
 
 	var cmds []tea.Cmd
 	var cmd tea.Cmd
 
-	if msg, ok := msg.(messages.UpdateShortcutsMessage); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		m.sz = msg
+		m.header, _ = m.header.Update(msg)
+		m.prompt, _ = m.prompt.Update(msg)
+		if m.body != nil {
+			m.body, _ = m.body.Update(messages.SizeMsg{
+				Width:  m.calculateContentWidth(),
+				Height: m.calculateContentHeight(),
+			})
+		}
+		return m, nil
+	case SetBodyMsg:
+		m.body = msg.Model
+		body, cmd := m.body.Update(messages.SizeMsg{
+			Width:  m.calculateContentWidth(),
+			Height: m.calculateContentHeight(),
+		})
+		m.body = body
+		return m, tea.Batch(cmd)
+
+	case messages.UpdateShortcutsMessage:
 		msg.Shortcuts = append(msg.Shortcuts, m.getMainShortcuts()...)
 		m.header, cmd = m.header.Update(msg)
 		cmds = append(cmds, cmd)
@@ -77,8 +100,31 @@ func (m ContainerModule) View() string {
 		components = append(components, view)
 	}
 
+	border := "╭"
+
+	sideCount := max((m.sz.Width-4-lipgloss.Width("TOPICS"))/2, 0)
+
+	border += strings.Repeat("─", sideCount)
+
+	border += " " + "TOPICS" + " "
+
+	border += strings.Repeat("─", sideCount)
+
+	border += "╮"
+
 	if m.body != nil {
-		components = append(components, m.body.View())
+		v := styles.TableStyle.
+			BorderTop(false).
+			Width(m.calculateContentWidth()).
+			Height(m.calculateContentHeight()).
+			Render(m.body.View())
+
+		v = lipgloss.JoinVertical(lipgloss.Top,
+			styles.BasicStyle.Render(border),
+			v,
+		)
+
+		components = append(components, v)
 	}
 
 	view := lipgloss.JoinVertical(

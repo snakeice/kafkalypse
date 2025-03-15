@@ -8,7 +8,6 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/termenv"
 	"github.com/snakeice/kafkalypse/internal/config"
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/kafka"
 	"github.com/snakeice/kafkalypse/internal/tools"
 	"github.com/snakeice/kafkalypse/internal/tui/components/connection"
@@ -16,6 +15,7 @@ import (
 	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/pages/consumers"
 	"github.com/snakeice/kafkalypse/internal/tui/pages/context"
+	"github.com/snakeice/kafkalypse/internal/tui/pages/dbg"
 	"github.com/snakeice/kafkalypse/internal/tui/pages/topics"
 	"github.com/snakeice/kafkalypse/internal/tui/pages/welcome"
 	"github.com/snakeice/kafkalypse/internal/tui/router"
@@ -25,6 +25,7 @@ type App struct {
 	config          *config.Configuration
 	kafkaConnection *kafka.Service
 	router          *router.Router
+	sz              messages.SizeMsg
 }
 
 func NewApp() *App {
@@ -56,6 +57,7 @@ func NewApp() *App {
 		router.NewRoute("brokers", nil, router.WithHidden()),
 		router.NewRoute("producers", nil, router.WithHidden()),
 		router.NewRoute("acls", nil, router.WithHidden()),
+		router.NewRoute("dbg", dbg.NewDbg(), router.WithHidden()),
 	)
 
 	// Set initial route
@@ -89,9 +91,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		cmds = append(cmds, a.router.NavigateTo(msg.Component, msg.Internal))
 
 	case tea.WindowSizeMsg:
-		constants.WindowHeight = msg.Height
-		constants.WindowWidth = msg.Width
+		size := messages.SizeMsg{
+			Width:  msg.Width,
+			Height: msg.Height,
+		}
+		a.sz = size
+		cmds = append(cmds, tools.WrapCmd(size))
 
+	case messages.RefreshSizeMsg:
+		cmds = append(cmds, tools.WrapCmd(a.sz))
 	case prompt.SubmitMsg:
 		if msg.State == prompt.EditingCommand {
 			cmds = append(cmds, messages.NavigateTo(msg.Value))

@@ -5,7 +5,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
@@ -26,6 +25,7 @@ type WelcomeDone struct{}
 type WelcomeModule struct {
 	figString string
 	msg       string
+	sz        messages.SizeMsg
 }
 
 func NewWelcome() WelcomeModule {
@@ -42,7 +42,10 @@ func (w WelcomeModule) Init() tea.Cmd {
 }
 
 func (w WelcomeModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if _, ok := msg.(WelcomeDone); ok {
+	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		w.sz = msg
+	case WelcomeDone:
 		return w, messages.NavigateTo("main", true)
 	}
 
@@ -51,8 +54,8 @@ func (w WelcomeModule) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (w WelcomeModule) View() string {
 	var style = styles.WelcomeStyle.
-		Width(constants.WindowWidth - 2).
-		Height(constants.WindowHeight - 2)
+		Width(w.sz.Width - 2).
+		Height(w.sz.Height - 2)
 
 	return style.Render(fmt.Sprintf(w.figString, w.msg))
 }

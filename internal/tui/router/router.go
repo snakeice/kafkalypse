@@ -45,7 +45,13 @@ func (r *Router) NavigateTo(routeKey string, internal bool) tea.Cmd {
 	if route, ok := r.routes[routeKey]; ok {
 		if !route.Hidden || internal {
 			r.activeRoute = &route
-			r.container, _ = r.container.Update(container.SetBodyMsg{Model: route.Value})
+
+			if route.containered {
+				r.container, _ = r.container.Update(container.SetBodyMsg{Model: route.Value})
+			} else {
+				r.container, _ = r.container.Update(container.SetBodyMsg{Model: nil})
+			}
+
 			return r.Init()
 		}
 	}
@@ -77,17 +83,20 @@ func (r *Router) ActivePage() string {
 func (r *Router) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmds []tea.Cmd
 
-	if r.container != nil {
-		container, cmd := r.container.Update(msg)
-		r.container = container
-		cmds = append(cmds, cmd)
+	if r.activeRoute == nil {
+		return r, nil
 	}
 
-	if r.activeRoute != nil {
-		model, cmd := r.activeRoute.Value.Update(msg)
-		r.activeRoute.Value = model
-		cmds = append(cmds, cmd)
+	if r.activeRoute.containered {
+		container, cmd := r.container.Update(msg)
+		r.container = container
+		return r, cmd
+
 	}
+
+	model, cmd := r.activeRoute.Value.Update(msg)
+	r.activeRoute.Value = model
+	cmds = append(cmds, cmd)
 
 	return r, tea.Batch(cmds...)
 }

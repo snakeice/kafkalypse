@@ -3,8 +3,8 @@ package prompt
 import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/snakeice/kafkalypse/internal/constants"
 	"github.com/snakeice/kafkalypse/internal/tools"
+	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
 )
 
@@ -26,6 +26,8 @@ type Model struct {
 	input    textinput.Model
 	State    State
 	idleHide bool
+
+	sz messages.SizeMsg
 }
 
 func New(idleHide bool) Model {
@@ -52,10 +54,12 @@ func (m Model) UpdateState(state State) (Model, tea.Cmd) {
 		m.input.Prompt = "🔍 /"
 		cmd := m.input.Focus()
 		cmds = append(cmds, cmd)
+		cmds = append(cmds, messages.RefreshSize())
 	case EditingCommand:
 		m.input.Prompt = "✨ :"
 		cmd := m.input.Focus()
 		cmds = append(cmds, cmd)
+		cmds = append(cmds, messages.RefreshSize())
 	}
 	m.State = state
 	return m, tea.Batch(cmds...)
@@ -69,6 +73,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	cmds = append(cmds, cmd)
 
 	switch msg := msg.(type) {
+	case messages.SizeMsg:
+		m.sz = msg
 	case tea.KeyMsg:
 		switch msg.String() {
 		case ":":
@@ -118,7 +124,7 @@ func (m Model) View() string {
 	}
 
 	view := styles.TableStyle.
-		Width(constants.WindowWidth - 2).
+		Width(m.sz.Width - 2).
 		Render(m.input.View())
 	return view
 }
