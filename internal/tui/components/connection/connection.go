@@ -65,9 +65,14 @@ func (m ConnectionModel) Init() tea.Cmd {
 func (m ConnectionModel) getBrokers() string {
 	brokers := strings.Join(m.Brokers, ", ")
 
-	if lipgloss.Width(brokers) < m.sz.Width {
+	wLimit := m.sz.Width - lipgloss.Width("Brokers: ") - 20
+	if wLimit < 0 {
+		wLimit = 0
+	}
+
+	if lipgloss.Width(brokers) < wLimit {
 		return brokers
 	}
 
-	return brokers[:m.sz.Width] + "..."
+	return brokers[:wLimit] + "..."
 }

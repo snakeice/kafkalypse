@@ -2,7 +2,6 @@ package app
 
 import (
 	"log"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -78,7 +77,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		a.kafkaConnection = msg.KafkaService
 		cmds = append(cmds, tools.WrapCmd(connection.ConnectionInfoMsg{
-			Brokers:        strings.Split(a.kafkaConnection.BrokersStr(), ","),
+			Brokers:        a.kafkaConnection.Brokers(),
 			ConectionState: "Connected",
 			KafkaVersion:   a.kafkaConnection.Version(),
 		}))

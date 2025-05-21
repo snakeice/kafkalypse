@@ -17,6 +17,7 @@ func main() {
 		log.Printf("failed to create log file: %v", err)
 		os.Exit(1)
 	}
+	defer func() { _ = f.Close() }()
 
 	appInstance := app.NewApp()
 	if appInstance == nil {
@@ -29,8 +30,6 @@ func main() {
 		tea.WithAltScreen())
 
 	if _, err := program.Run(); err != nil {
-		f.Close()
 		log.Fatalf("an error occurred: %v\n", err)
 	}
-	f.Close()
 }

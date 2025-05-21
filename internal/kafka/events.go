@@ -17,8 +17,8 @@ type Message struct {
 
 type TopicOverview struct {
 	Name        string
-	Partitions  int32
-	Replication int16
+	Partitions  int
+	Replication int
 	IsInternal  bool
 }
 

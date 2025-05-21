@@ -2,6 +2,7 @@ package editor
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"syscall"
@@ -19,7 +20,12 @@ func EditText(in, ext string) (*Modified, error) {
 		return nil, fmt.Errorf("failed to create temporary file: %w", err)
 	}
 
-	defer os.Remove(tmpFile.Name())
+	defer func() {
+		err := os.Remove(tmpFile.Name())
+		if err != nil {
+			log.Printf("cannot clean up temporary file: %s", err)
+		}
+	}()
 
 	if _, err := tmpFile.Write([]byte(in)); err != nil {
 		return nil, fmt.Errorf("failed to write to temporary file: %w", err)

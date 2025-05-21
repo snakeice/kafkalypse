@@ -1,41 +1,69 @@
 services:
   kafka:
-    image: moeenz/docker-kafka-kraft:latest
+    image: apache/kafka:latest
     restart: always
     ports:
       - "9093:9093"
     environment:
-      - KRAFT_CONTAINER_HOST_NAME=kafka
-      - KRAFT_CREATE_TOPICS=topic-a,topic-b,topic-c,topic-d
-      - KRAFT_PARTITIONS_PER_TOPIC=3
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://localhost:9093,CONTROLLER://localhost:19093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:19093
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - kafka-net
 
   kafka2:
-    image: moeenz/docker-kafka-kraft:latest
+    image: apache/kafka:latest
     restart: always
     ports:
-      - "9094:9093"
+      - "9094:9094"
     environment:
-      - KRAFT_CONTAINER_HOST_NAME=kafka
-      - KRAFT_CREATE_TOPICS=topic-2a,topic-2b,topic-2c,topic-2d
-      - KRAFT_PARTITIONS_PER_TOPIC=3
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: PLAINTEXT://localhost:9094,CONTROLLER://localhost:19094
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9094
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:19094
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_NUM_PARTITIONS: 3
+    networks:
+      - kafka-net
 
-  fake-producer:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - kafka
-    command: bash -c "seq 42 | kafka-console-producer --request-required-acks 1 --broker-list kafka:9092 --topic topic-a && echo 'Produced 42 messages.'"
+  # fake-producer:
+  #   image: confluentinc/cp-kafka:latest
+  #   depends_on:
+  #     - kafka
+  #   command: bash -c "seq 42 | kafka-console-producer --request-required-acks 1 --broker-list kafka:9092 --topic topic-a && echo 'Produced 42 messages.'"
 
-  fake-consumer:
-    image: confluentinc/cp-kafka:latest
-    depends_on:
-      - kafka
-    command: bash -c "kafka-console-consumer --bootstrap-server kafka:9092 --topic topic-a --from-beginning"
+  # fake-consumer:
+  #   image: confluentinc/cp-kafka:latest
+  #   depends_on:
+  #     - kafka
+  #   command: bash -c "kafka-console-consumer --bootstrap-server kafka:9092 --topic topic-a --from-beginning"
 
-  console:
-    image: docker.redpanda.com/redpandadata/console
-    depends_on:
-      - kafka
-    ports:
-      - "8080:8080"
-    environment:
-      - KAFKA_BROKERS=kafka:9092
+  # console:
+  #   image: docker.redpanda.com/redpandadata/console
+  #   depends_on:
+  #     - kafka
+  #   ports:
+  #     - "8080:8080"
+  #   environment:
+  #     - KAFKA_BROKERS=kafka:9093
+  #   networks:
+  #     - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge

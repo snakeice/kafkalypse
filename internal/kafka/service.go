@@ -2,86 +2,104 @@ package kafka
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 
-	"github.com/IBM/sarama"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/snakeice/kafkalypse/internal/config"
 	"github.com/snakeice/kafkalypse/internal/tools"
+	"github.com/twmb/franz-go/pkg/kadm"
+	"github.com/twmb/franz-go/pkg/kgo"
+	"github.com/twmb/franz-go/pkg/kmsg"
 )
 
 type Service struct {
-	kAdmin  sarama.ClusterAdmin
-	kClient sarama.Client
+	client  *kgo.Client
+	admin   *kadm.Client
 	ctx     context.Context
 	version string
 }
 
 func NewKafkaClient(ctxConfig *config.KafkaContext) (*Service, error) {
-	config := sarama.NewConfig()
-	config.Version = sarama.V2_8_1_0 // Initial version for connection
-	config.Consumer.Return.Errors = true
-	config.Producer.Return.Successes = true
+	bootstrapServers := strings.Split(ctxConfig.BootstrapServers, ",")
+	ctx := context.Background()
 
-	kClient, err := sarama.NewClient(strings.Split(ctxConfig.BootstrapServers, ","), config)
-	if err != nil {
-		return nil, err
+	// Configure the Kafka client
+	opts := []kgo.Opt{
+		kgo.SeedBrokers(bootstrapServers...),
+		kgo.ClientID("kafkalypse"),
+		kgo.DialTimeout(10 * time.Second),
 	}
 
-	// Get actual broker version
-	broker := kClient.Brokers()[0]
+	// Add security options if configured
+	if ctxConfig.SecurityProtocol != "" {
+		switch ctxConfig.SecurityProtocol {
+		case "SASL_PLAINTEXT":
+			opts = append(opts,
+				kgo.SASL(ctxConfig.Sasl.AsMechanism()),
+			)
+		case "SASL_SSL":
+			tlsDialer := &tls.Dialer{NetDialer: &net.Dialer{Timeout: 10 * time.Second}}
 
-	if ok, err := broker.Connected(); !ok {
-		if err != nil {
-			return nil, err
+			opts = append(opts,
+				kgo.SASL(ctxConfig.Sasl.AsMechanism()),
+				kgo.Dialer(tlsDialer.DialContext),
+			)
 		}
-
-		if err := broker.Open(config); err != nil {
-			return nil, err
-		}
 	}
 
-	// Reconnect with correct version
-	kClient.Close()
-	kClient, err = sarama.NewClient(strings.Split(ctxConfig.BootstrapServers, ","), config)
+	client, err := kgo.NewClient(opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	kAdmin, err := sarama.NewClusterAdminFromClient(kClient)
+	admin := kadm.NewClient(client)
+
+	apiVersions, err := admin.ApiVersions(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to get API versions: %v", err)
+	}
+
+	ver := apiVersions.Sorted()[0]
+
+	// Get broker version
+	var version string
+	if ver.Err != nil {
+		version = "Unknown"
+	} else {
+		version = ver.VersionGuess()
 	}
 
 	return &Service{
-		kAdmin:  kAdmin,
-		kClient: kClient,
-		ctx:     context.Background(),
-		version: ":TODO:",
+		client:  client,
+		admin:   admin,
+		ctx:     ctx,
+		version: version,
 	}, nil
 }
 
 func (k *Service) Close() error {
-	if err := k.kAdmin.Close(); err != nil {
-		return err
-	}
-
-	if err := k.kClient.Close(); err != nil {
-		return err
-	}
-
+	k.client.Close()
 	return nil
 }
 
-func (k *Service) BrokersStr() string {
-	brokers := k.kClient.Brokers()
-	var strs []string
-	for _, b := range brokers {
-		strs = append(strs, b.Addr())
+func (k *Service) Brokers() []string {
+	// Get brokers from metadata
+	req := kmsg.NewMetadataRequest()
+	resp, err := req.RequestWith(k.ctx, k.client)
+	if err != nil {
+		return nil
 	}
-	return strings.Join(strs, ",")
+
+	var brokers []string
+	for _, broker := range resp.Brokers {
+		brokers = append(brokers, fmt.Sprintf("%s:%d", broker.Host, broker.Port))
+	}
+
+	return brokers
 }
 
 func (k *Service) Version() string {
@@ -90,83 +108,86 @@ func (k *Service) Version() string {
 
 // Event Handlers
 func (k *Service) handleTopicListEvent() tea.Msg {
-	topics, err := k.kAdmin.ListTopics()
+	// List topics using kadm
+	topics, err := k.admin.ListTopics(k.ctx)
 	if err != nil {
 		return TopicListEventRes{Error: err}
 	}
 
 	var topicsOverview []TopicOverview
-	topicsNames := make([]string, 0, len(topics))
-	for topicName := range topics {
-		topicsNames = append(topicsNames, topicName)
-	}
+	for name, topic := range topics {
 
-	details, err := k.kAdmin.DescribeTopics(topicsNames)
-	if err != nil {
-		return TopicListEventRes{Error: err}
-	}
-
-	for topicName, topic := range topics {
-		for _, detail := range details {
-			if detail.Name == topicName {
-				topicsOverview = append(topicsOverview, TopicOverview{
-					Name:        detail.Name,
-					Partitions:  int32(len(detail.Partitions)),
-					Replication: topic.ReplicationFactor,
-					IsInternal:  detail.IsInternal,
-				})
-				break
-			}
-		}
+		topicsOverview = append(topicsOverview, TopicOverview{
+			Name:        name,
+			Partitions:  len(topic.Partitions),
+			Replication: topic.Partitions.NumReplicas(),
+			IsInternal:  topic.IsInternal,
+		})
 	}
 
 	return TopicListEventRes{Topics: topicsOverview}
 }
 
 func (k *Service) handleTopicDetailEvent(event TopicDetailEventReq) tea.Msg {
-	config, err := k.kAdmin.DescribeConfig(sarama.ConfigResource{
-		Type: sarama.TopicResource,
-		Name: event.Topic,
-	})
+	configs, err := k.admin.DescribeTopicConfigs(k.ctx, event.Topic)
 	if err != nil {
 		return TopicDetailEventRes{Error: err}
 	}
 
+	if len(configs) == 0 {
+		return TopicDetailEventRes{Error: fmt.Errorf("topic not found")}
+	}
+
+	config := configs[0]
 	topicDetail := &TopicDetail{
 		TopicOverview: TopicOverview{
 			Name: event.Topic,
 		},
-		Config: make(map[string]string, len(config)),
+		Config: make(map[string]string, len(config.Configs)),
 	}
 
-	for _, entry := range config {
-		topicDetail.Config[entry.Name] = entry.Value
+	for _, entry := range config.Configs {
+		if entry.Value != nil {
+			topicDetail.Config[entry.Key] = *entry.Value
+		}
 	}
 
 	return TopicDetailEventRes{Topic: topicDetail}
 }
 
 func (k *Service) handleTopicCreateEvent(event TopicCreateEventReq) tea.Msg {
-	err := k.kAdmin.CreateTopic(event.Topic, &sarama.TopicDetail{
-		NumPartitions:     event.Partitions,
-		ReplicationFactor: event.Replication,
-	}, false)
+	_, err := k.admin.CreateTopic(
+		k.ctx,
+		event.Partitions,
+		event.Replication,
+		nil,
+		event.Topic,
+	)
+
 	return TopicCreateEventRes{Topic: event.Topic, Error: err}
 }
 
 func (k *Service) handleTopicDeleteEvent(event TopicDeleteEventReq) tea.Msg {
-	err := k.kAdmin.DeleteTopic(event.Topic)
+	res, err := k.admin.DeleteTopic(k.ctx, event.Topic)
+	if res.Err != nil {
+		err = res.Err
+	}
+
 	return TopicDeleteEventRes{Topic: event.Topic, Error: err}
 }
 
 func (k *Service) handleTopicConfigUpdateEvent(event TopicConfigUpdateEventReq) tea.Msg {
-	configMap := make(map[string]*string)
-	for key, value := range event.Config {
-		val := value // Create a new variable to get a unique address
-		configMap[key] = &val
+	var updates []kadm.AlterConfig
+
+	for name, value := range event.Config {
+		updates = append(updates, kadm.AlterConfig{
+			Name:  name,
+			Op:    kadm.SetConfig, // TODO: handle other operations
+			Value: &value,
+		})
 	}
 
-	err := k.kAdmin.AlterConfig(sarama.TopicResource, event.Topic, configMap, false)
+	_, err := k.admin.AlterTopicConfigs(k.ctx, updates, event.Topic) //TODO: handle response
 	if err != nil {
 		return TopicConfigUpdateEventRes{Error: err}
 	}
@@ -175,16 +196,16 @@ func (k *Service) handleTopicConfigUpdateEvent(event TopicConfigUpdateEventReq) 
 }
 
 func (k *Service) handleConsumerGroupListEvent() tea.Msg {
-	groups, err := k.kAdmin.ListConsumerGroups()
+	groups, err := k.admin.ListGroups(k.ctx)
 	if err != nil {
 		return ConsumerGroupListEvent{Error: err}
 	}
 
 	var consumerGroups []ConsumerGroup
-	for groupID := range groups {
+	for id, group := range groups {
 		consumerGroups = append(consumerGroups, ConsumerGroup{
-			GroupID: groupID,
-			State:   groups[groupID],
+			GroupID: id,
+			State:   string(group.State),
 		})
 	}
 
@@ -192,36 +213,30 @@ func (k *Service) handleConsumerGroupListEvent() tea.Msg {
 }
 
 func (k *Service) handleMessageListEvent(event MessageListEvent) tea.Msg {
-	consumer, err := sarama.NewConsumerFromClient(k.kClient)
-	if err != nil {
-		return MessageListEvent{Error: err}
-	}
-	defer consumer.Close()
 
-	partitions, err := consumer.Partitions(event.Topic)
-	if err != nil {
-		return MessageListEvent{Error: err}
-	}
+	// Set timeout for context
+	ctx, cancel := context.WithTimeout(k.ctx, 500*time.Millisecond)
+	defer cancel()
 
 	var messages []Message
-	for _, partition := range partitions {
-		pc, err := consumer.ConsumePartition(event.Topic, partition, sarama.OffsetNewest)
-		if err != nil {
-			continue
-		}
 
-		select {
-		case msg := <-pc.Messages():
-			messages = append(messages, Message{
-				Key:       msg.Key,
-				Value:     msg.Value,
-				Offset:    msg.Offset,
-				Timestamp: msg.Timestamp.Unix(),
-			})
-		case <-time.After(100 * time.Millisecond):
-		}
-		pc.Close()
+	// Poll for messages with a timeout
+	fetches := k.client.PollFetches(ctx)
+	errs := fetches.Errors()
+	if len(errs) > 0 {
+		return MessageListEvent{Error: errs[0].Err}
 	}
+
+	fetches.EachPartition(func(p kgo.FetchTopicPartition) {
+		p.EachRecord(func(record *kgo.Record) {
+			messages = append(messages, Message{
+				Key:       record.Key,
+				Value:     record.Value,
+				Offset:    record.Offset,
+				Timestamp: record.Timestamp.Unix(),
+			})
+		})
+	})
 
 	return MessageListEvent{
 		Topic:    event.Topic,
@@ -230,47 +245,30 @@ func (k *Service) handleMessageListEvent(event MessageListEvent) tea.Msg {
 }
 
 func (k *Service) handleMessageProduceEvent(event MessageProduceEvent) tea.Msg {
-	producer, err := sarama.NewSyncProducerFromClient(k.kClient)
-	if err != nil {
-		return MessageProduceEvent{Error: err}
-	}
-	defer producer.Close()
-
-	msg := &sarama.ProducerMessage{
+	record := &kgo.Record{
 		Topic: event.Topic,
-		Value: sarama.StringEncoder("test message"),
+		Value: []byte("test message"),
 	}
 
-	_, _, err = producer.SendMessage(msg)
+	err := k.client.ProduceSync(k.ctx, record).FirstErr()
 	return MessageProduceEvent{Topic: event.Topic, Error: err}
 }
 
 func (k *Service) handleGetConnMsg() tea.Msg {
 	// Check if we have a valid connection
-	if k.kClient == nil || k.kAdmin == nil {
+	if k.client == nil || k.admin == nil {
 		return KafkaConnectionRes{
 			KafkaService: nil,
 			Err:          fmt.Errorf("no active connection"),
 		}
 	}
 
-	// Check if we can connect to any broker
-	brokers := k.kClient.Brokers()
-	if len(brokers) == 0 {
+	// Try a simple metadata request to check connectivity
+	err := k.client.Ping(k.ctx)
+	if err != nil {
 		return KafkaConnectionRes{
 			KafkaService: nil,
-			Err:          fmt.Errorf("no brokers available"),
-		}
-	}
-
-	// Try to connect to the first broker
-	broker := brokers[0]
-	if ok, err := broker.Connected(); !ok {
-		if err != nil {
-			return KafkaConnectionRes{
-				KafkaService: nil,
-				Err:          err,
-			}
+			Err:          err,
 		}
 	}
 
