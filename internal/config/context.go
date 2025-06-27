@@ -12,7 +12,6 @@ type SaslMechanism struct {
 }
 
 type KafkaContext struct {
-	Name             string        `yaml:"name"`
 	BootstrapServers string        `yaml:"bootstrapServers"`
 	SecurityProtocol string        `yaml:"securityProtocol"`
 	Sasl             SaslMechanism `yaml:"sasl"`

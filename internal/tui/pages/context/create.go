@@ -63,20 +63,20 @@ func (c *CreateContext) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		switch msg.String() {
 		case "ctrl+s":
-			// Save context
-			ctx := &config.KafkaContext{
-				Name:             c.fields["name"],
-				BootstrapServers: c.fields["bootstrapServers"],
-				SecurityProtocol: c.fields["securityProtocol"],
-			}
 
 			if c.fields["name"] == "" {
 				c.error = fmt.Errorf("context name cannot be empty")
 				return c, nil
 			}
 
-			c.config.Contexts[ctx.Name] = ctx
-			c.config.CurrentContext = ctx.Name
+			// Save context
+			ctx := &config.KafkaContext{
+				BootstrapServers: c.fields["bootstrapServers"],
+				SecurityProtocol: c.fields["securityProtocol"],
+			}
+
+			c.config.Contexts[c.fields["name"]] = ctx
+			c.config.CurrentContext = c.fields["name"]
 
 			viper.Set("contexts", c.config.Contexts)
 			viper.Set("currentContext", c.config.CurrentContext)
