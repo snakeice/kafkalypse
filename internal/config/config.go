@@ -62,5 +62,9 @@ func (c *Configuration) GetCurrentContext() *KafkaContext {
 }
 
 func (c *Configuration) SaveConfig() error {
-	return viper.WriteConfig()
+	err := viper.WriteConfig()
+	if err != nil {
+		return errors.Wrap(err, "failed to save configuration")
+	}
+	return nil
 }
