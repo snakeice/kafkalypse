@@ -6,8 +6,10 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/snakeice/kafkalypse/internal/config"
+	"github.com/snakeice/kafkalypse/internal/kafka"
 	"github.com/snakeice/kafkalypse/internal/tui/messages"
 	"github.com/snakeice/kafkalypse/internal/tui/styles"
+	"github.com/spf13/viper"
 )
 
 // Brokers  string `yaml:"brokers"`
@@ -75,12 +77,18 @@ func (c *CreateContext) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			c.config.Contexts[ctx.Name] = ctx
 			c.config.CurrentContext = ctx.Name
+
+			viper.Set("contexts", c.config.Contexts)
+			viper.Set("currentContext", c.config.CurrentContext)
 			if err := c.config.SaveConfig(); err != nil {
 				c.error = err
 				return c, nil
 			}
 
-			return c, messages.NavigateTo("contexts", true)
+			return c, tea.Batch(
+				messages.NavigateTo("contexts", true),
+				kafka.Connect(ctx),
+			)
 
 		case "esc":
 			if c.editing {
