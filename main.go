@@ -26,7 +26,7 @@ func main() {
 
 	program := tea.NewProgram(appInstance,
 		tea.WithContext(ctx),
-		// tea.WithMouseAllMotion(),
+		tea.WithMouseAllMotion(),
 		tea.WithAltScreen())
 
 	if _, err := program.Run(); err != nil {

@@ -1,6 +1,8 @@
 package table
 
 import (
+	"time"
+
 	"github.com/charmbracelet/bubbles/key"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
@@ -51,6 +53,10 @@ type Model struct {
 
 	start int
 	end   int
+
+	// Mouse support
+	lastClickTime time.Time
+	lastClickRow  int
 
 	sz messages.SizeMsg
 }
@@ -113,6 +119,23 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.viewport.Height = msg.Height - 1 // 3 for the header
 		m.viewport.Width = msg.Width
 		m.updateViewport()
+	
+	case tea.MouseMsg:
+		if !m.focus {
+			return m, nil
+		}
+		
+		// Handle mouse events
+		if msg.Action == tea.MouseActionPress {
+			if msg.Button == tea.MouseButtonLeft {
+				cmds = append(cmds, m.handleMouseClick(msg.X, msg.Y))
+			} else if msg.Button == tea.MouseButtonWheelUp {
+				cmds = append(cmds, m.handleMouseWheel(1))
+			} else if msg.Button == tea.MouseButtonWheelDown {
+				cmds = append(cmds, m.handleMouseWheel(-1))
+			}
+		}
+	
 	case tea.KeyMsg:
 		if !m.focus {
 			return m, nil
@@ -139,6 +162,58 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	return m, tea.Batch(cmds...)
+}
+
+// handleMouseClick processes mouse clicks on table rows
+func (m *Model) handleMouseClick(x, y int) tea.Cmd {
+	// Calculate which row was clicked
+	// The table content starts after the header (around row 1)
+	clickedRow := y - 1 // Account for header row
+	if clickedRow < 0 {
+		return nil
+	}
+	
+	// Calculate the actual row index considering viewport offset
+	actualRow := m.start + clickedRow
+	if actualRow >= m.Datasource.Len() {
+		return nil
+	}
+	
+	// Update cursor to clicked item
+	oldCursor := m.cursor
+	m.cursor = clamp(actualRow, 0, m.Datasource.Len()-1)
+	
+	// Check for double-click
+	now := time.Now()
+	if actualRow == m.lastClickRow && now.Sub(m.lastClickTime) < 500*time.Millisecond {
+		// Double-click detected - simulate Enter key press
+		return func() tea.Msg {
+			return tea.KeyMsg{Type: tea.KeyEnter}
+		}
+	}
+	
+	// Record this click for double-click detection
+	m.lastClickTime = now
+	m.lastClickRow = actualRow
+	
+	// Update viewport if cursor moved
+	if oldCursor != m.cursor {
+		m.updateViewport()
+	}
+	
+	return nil
+}
+
+// handleMouseWheel processes mouse wheel scrolling
+func (m *Model) handleMouseWheel(direction int) tea.Cmd {
+	if direction > 0 {
+		// Scroll up
+		m.MoveUp(3) // Scroll by 3 lines for smoother experience
+	} else {
+		// Scroll down
+		m.MoveDown(3)
+	}
+	return nil
 }
 
 func (m *Model) MoveUp(n int) {

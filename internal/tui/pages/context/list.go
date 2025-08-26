@@ -3,6 +3,7 @@ package context
 import (
 	"fmt"
 	"sort"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -20,6 +21,10 @@ type ContextList struct {
 	contexts []string
 	cursor   int
 	offset   int // For scrolling
+
+	// Mouse support
+	lastClickTime time.Time
+	lastClickRow  int
 
 	sz messages.SizeMsg
 }
@@ -133,6 +138,20 @@ func (c *ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case messages.SizeMsg:
 		c.sz = msg
 		return c, nil
+	
+	case tea.MouseMsg:
+		// Handle mouse events
+		if msg.Action == tea.MouseActionPress {
+			if msg.Button == tea.MouseButtonLeft {
+				return c, c.handleMouseClick(msg.X, msg.Y)
+			} else if msg.Button == tea.MouseButtonWheelUp {
+				return c, c.handleMouseWheel(1)
+			} else if msg.Button == tea.MouseButtonWheelDown {
+				return c, c.handleMouseWheel(-1)
+			}
+		}
+		return c, nil
+	
 	case tea.KeyMsg:
 		// Handle navigation keys
 		switch msg.String() {
@@ -162,6 +181,70 @@ func (c *ContextList) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return c, nil
+}
+
+// handleMouseClick processes mouse clicks on context items
+func (c *ContextList) handleMouseClick(x, y int) tea.Cmd {
+	// Calculate which row was clicked
+	// The context list starts after the header (around row 3) and has margin
+	startRow := 3 // Account for header and spacing
+	if c.offset > 0 {
+		startRow++ // Add extra row for scroll indicator
+	}
+	
+	clickedRow := y - startRow
+	if clickedRow < 0 || clickedRow >= len(c.contexts) {
+		return nil
+	}
+	
+	// Calculate the actual context index considering offset
+	contextIndex := c.offset + clickedRow
+	if contextIndex >= len(c.contexts) {
+		return nil
+	}
+	
+	// Update cursor to clicked item
+	c.cursor = contextIndex
+	
+	// Check for double-click
+	now := time.Now()
+	if contextIndex == c.lastClickRow && now.Sub(c.lastClickTime) < 500*time.Millisecond {
+		// Double-click detected - switch to this context
+		c.config.CurrentContext = c.contexts[c.cursor]
+		if err := c.config.SaveConfig(); err != nil {
+			c.error = err
+			return nil
+		}
+		return messages.NavigateTo("topics", true)
+	}
+	
+	// Record this click for double-click detection
+	c.lastClickTime = now
+	c.lastClickRow = contextIndex
+	
+	return nil
+}
+
+// handleMouseWheel processes mouse wheel scrolling
+func (c *ContextList) handleMouseWheel(direction int) tea.Cmd {
+	if direction > 0 {
+		// Scroll up
+		if c.cursor > 0 {
+			c.cursor--
+			if c.cursor < c.offset {
+				c.offset = c.cursor
+			}
+		}
+	} else {
+		// Scroll down
+		if c.cursor < len(c.contexts)-1 {
+			c.cursor++
+			if c.cursor >= c.offset+c.maxVisibleItems()-2 {
+				c.offset = c.cursor - c.maxVisibleItems() + 3
+			}
+		}
+	}
+	return nil
 }
 
 func (c *ContextList) maxVisibleItems() int {
